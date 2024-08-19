@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring Results</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .charts-container {
+            display: flex;
+            justify-content: space-between;
+        }
+        .chart {
+            width: 45%;
+        }
+        .list {
+            margin-bottom: 20px;
+        }
+        .list-item {
+            cursor: pointer;
+            padding: 5px;
+            border: 1px solid #ccc;
+            margin: 2px 0;
+            border-radius: 3px;
+        }
+        .list-item:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Monitoring Results</h1>
+    
+    <h2>Nodes</h2>
+    <div class="list" id="nodeList">
+        <!-- Node items will be inserted here -->
+    </div>
+    
+    <h2>Top Pods</h2>
+    <div class="list" id="podList">
+        <!-- Top Pod items will be inserted here -->
+    </div>
+    
+    <div class="charts-container">
+        <div class="chart">
+            <canvas id="nodeChart"></canvas>
+        </div>
+        <div class="chart">
+            <canvas id="podChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        var nodeData = {{ node_data | safe }};
+        var podData = {{ pod_data | safe }};
+        
+        function createListItem(name, type) {
+            var listItem = document.createElement('div');
+            listItem.textContent = name;
+            listItem.className = 'list-item';
+            listItem.onclick = function() {
+                fetchChartData(name, type);
+            };
+            return listItem;
+        }
+        
+        function populateLists() {
+            var nodeList = document.getElementById('nodeList');
+            var podList = document.getElementById('podList');
+            
+            nodeData.labels.forEach(function(nodeName) {
+                nodeList.appendChild(createListItem(nodeName, 'node'));
+            });
+            
+            podData.labels.forEach(function(podName) {
+                podList.appendChild(createListItem(podName, 'pod'));
+            });
+        }
+        
+        function fetchChartData(name, type) {
+            fetch('/chart-data?name=' + encodeURIComponent(name) + '&type=' + type)
+                .then(response => response.json())
+                .then(data => {
+                    if (type === 'node') {
+                        updateChart('nodeChart', data);
+                    } else {
+                        updateChart('podChart', data);
+                    }
+                });
+        }
+        
+        function updateChart(chartId, data) {
+            var ctx = document.getElementById(chartId).getContext('2d');
+            var chart = Chart.getChart(chartId); // Check if chart already exists
+            
+            if (chart) {
+                chart.destroy(); // Remove previous chart if exists
+            }
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'CPU Usage',
+                        data: data.cpu_usage,
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    }, {
+                        label: 'Memory Usage',
+                        data: data.memory_usage,
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            beginAtZero: true
+                        },
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Initialize lists and charts
+        populateLists();
+    </script>
+</body>
+</html>
